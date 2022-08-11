@@ -23,6 +23,7 @@ impl Chip8 {
         for idx in 0..rom.len() {
             self.memory
                 .write_byte(PROGRAM_OFFSET + (idx as u16), rom[idx]);
+            println!("{:#X}", rom[idx])
         }
     }
 

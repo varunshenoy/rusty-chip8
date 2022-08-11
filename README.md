@@ -12,3 +12,5 @@ I first wanted to build a GBA emulator, since I've grown up on those, but it see
 ### Resources Used:
 - [The Rust Programming Language](https://doc.rust-lang.org/book/)
 - [Cowgod's Chip-8 Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM#1.0)
+- [Colin Eberhardt's WASM Rust Chip-8 Outut](https://colineberhardt.github.io/wasm-rust-chip8/web/) 
+    *this one helped me make sure my emulator was reading and parsing bits correctly*
