@@ -1,7 +1,10 @@
 use super::display::{Display, HEIGHT, WIDTH};
 use super::memory::Memory;
 
+use rand::Rng;
+
 const OPCODE_SIZE: u16 = 2;
+const F: usize = 15;
 
 pub struct Cpu {
     regs: [u8; 16],
@@ -9,8 +12,8 @@ pub struct Cpu {
     pc: u16,
     sp: u8,
     stack: [u16; 16],
-    dt: u16,
-    st: u16,
+    dt: u8,
+    st: u8,
 }
 
 enum ProgramCounter {
@@ -159,7 +162,7 @@ impl Cpu {
                 x: _,
                 y: _,
                 n: 6,
-            } => self.op_shr(opcode.x, opcode.y),
+            } => self.op_shr(opcode.x),
             Opcode {
                 h: 8,
                 x: _,
@@ -171,7 +174,7 @@ impl Cpu {
                 x: _,
                 y: _,
                 n: 0xE,
-            } => self.op_shl(opcode.x, opcode.y),
+            } => self.op_shl(opcode.x),
             Opcode {
                 h: 9,
                 x: _,
@@ -291,6 +294,8 @@ impl Cpu {
         ProgramCounter::Next
     }
 
+    // ---- OPCODE INTERPRETATION ----
+
     // 00EE - RET
     // Return from a subroutine.
     // The interpreter sets the program counter to the address at the top of the stack, then subtracts 1 from the stack pointer.
@@ -304,5 +309,178 @@ impl Cpu {
     // The interpreter sets the program counter to nnn.
     fn op_jp_addr(&self, nnn: u16) -> ProgramCounter {
         ProgramCounter::Jump(nnn)
+    }
+
+    // 2nnn - CALL addr
+    // Call subroutine at nnn.
+    // The interpreter increments the stack pointer, then puts the current PC on the top of the stack. The PC is then set to nnn.
+    fn op_call(&self, nnn: u16) -> ProgramCounter {
+        self.stack[self.sp as usize] = self.pc;
+        self.sp += 1;
+        ProgramCounter::Jump(nnn)
+    }
+
+    // 3xkk - SE Vx, byte
+    // Skip next instruction if Vx = kk.
+    // The interpreter compares register Vx to kk, and if they are equal, increments the program counter by 2.
+    fn op_se_byte(&self, x: u8, kk: u8) -> ProgramCounter {
+        let vx = self.regs[x as usize];
+        if vx == kk {
+            ProgramCounter::Skip
+        } else {
+            ProgramCounter::Next
+        }
+    }
+
+    // 4xkk - SNE Vx, byte
+    // Skip next instruction if Vx != kk.
+    // The interpreter compares register Vx to kk, and if they are not equal, increments the program counter by 2.
+    fn op_sne_byte(&self, x: u8, kk: u8) -> ProgramCounter {
+        let vx = self.regs[x as usize];
+        if vx != kk {
+            ProgramCounter::Skip
+        } else {
+            ProgramCounter::Next
+        }
+    }
+
+    // 5xy0 - SE Vx, Vy
+    // Skip next instruction if Vx = Vy.
+    // The interpreter compares register Vx to register Vy, and if they are equal, increments the program counter by 2.
+    fn op_se_reg(&self, x: u8, y: u8) -> ProgramCounter {
+        let vx = self.regs[x as usize];
+        let vy = self.regs[y as usize];
+        if vx == vy {
+            ProgramCounter::Skip
+        } else {
+            ProgramCounter::Next
+        }
+    }
+
+    // 6xkk - LD Vx, byte
+    // Set Vx = kk.
+    // The interpreter puts the value kk into register Vx.
+    fn op_ld_byte(&self, x: u8, kk: u8) -> ProgramCounter {
+        self.regs[x as usize] = kk;
+        ProgramCounter::Next
+    }
+
+    // 7xkk - ADD Vx, byte
+    // Set Vx = Vx + kk.
+    // Adds the value kk to the value of register Vx, then stores the result in Vx.
+    fn op_add_byte(&self, x: u8, kk: u8) -> ProgramCounter {
+        self.regs[x as usize] += kk;
+        ProgramCounter::Next
+    }
+
+    // 8xy0 - LD Vx, Vy
+    // Set Vx = Vy.
+    // Stores the value of register Vy in register Vx.
+    fn op_ld_regs(&self, x: u8, y: u8) -> ProgramCounter {
+        self.regs[x as usize] = self.regs[y as usize];
+        ProgramCounter::Next
+    }
+
+    fn op_or(&self, x: u8, y: u8) -> ProgramCounter {
+        self.regs[x as usize] |= self.regs[y as usize];
+        ProgramCounter::Next
+    }
+
+    fn op_and(&self, x: u8, y: u8) -> ProgramCounter {
+        self.regs[x as usize] &= self.regs[y as usize];
+        ProgramCounter::Next
+    }
+
+    fn op_xor(&self, x: u8, y: u8) -> ProgramCounter {
+        self.regs[x as usize] ^= self.regs[y as usize];
+        ProgramCounter::Next
+    }
+
+    fn op_add_regs(&self, x: u8, y: u8) -> ProgramCounter {
+        let vx = self.regs[x as usize] as u16;
+        let vy = self.regs[y as usize] as u16;
+
+        let sum = vx + vy;
+        self.regs[x as usize] = sum as u8;
+        self.regs[F] = if sum > 255 { 1 } else { 0 };
+        ProgramCounter::Next
+    }
+
+    fn op_sub(&self, x: u8, y: u8) -> ProgramCounter {
+        let vx = self.regs[x as usize];
+        let vy = self.regs[y as usize];
+
+        self.regs[F] = if vx > vy { 1 } else { 0 };
+        self.regs[x as usize] = vx.wrapping_sub(vy);
+        ProgramCounter::Next
+    }
+
+    fn op_shr(&self, x: u8) -> ProgramCounter {
+        let vx = self.regs[x as usize];
+        self.regs[F] = if vx & 1 == 1 { 1 } else { 0 };
+        self.regs[x as usize] >>= 1;
+        ProgramCounter::Next
+    }
+
+    fn op_subn(&self, x: u8, y: u8) -> ProgramCounter {
+        let vx = self.regs[x as usize];
+        let vy = self.regs[y as usize];
+
+        self.regs[F] = if vy > vx { 1 } else { 0 };
+        self.regs[x as usize] = vy.wrapping_sub(vx);
+        ProgramCounter::Next
+    }
+
+    fn op_shl(&self, x: u8) -> ProgramCounter {
+        let vx = self.regs[x as usize];
+        self.regs[F] = if vx >> 7 == 1 { 1 } else { 0 };
+        self.regs[x as usize] <<= 1;
+        ProgramCounter::Next
+    }
+
+    fn op_sne_regs(&self, x: u8, y: u8) -> ProgramCounter {
+        let vx = self.regs[x as usize];
+        let vy = self.regs[y as usize];
+        if vx != vy {
+            ProgramCounter::Skip
+        } else {
+            ProgramCounter::Next
+        }
+    }
+
+    fn op_ld_i(&self, nnn: u16) -> ProgramCounter {
+        self.i = nnn;
+        ProgramCounter::Next
+    }
+
+    fn op_rand(&self, x: u8, kk: u8) -> ProgramCounter {
+        let n: u8 = rand::thread_rng().gen();
+        self.regs[x as usize] = n & kk;
+        ProgramCounter::Next
+    }
+
+    fn op_ld_dt(&self, x: u8) -> ProgramCounter {
+        self.regs[x as usize] = self.dt;
+        ProgramCounter::Next
+    }
+
+    fn op_ld_vx(&self, x: u8) -> ProgramCounter {
+        self.dt = self.regs[x as usize];
+        ProgramCounter::Next
+    }
+
+    fn op_ld_st(&self, x: u8) -> ProgramCounter {
+        self.st = self.regs[x as usize];
+        ProgramCounter::Next
+    }
+
+    fn op_add_i(&self, x: u8) -> ProgramCounter {
+        self.i += self.regs[x as usize] as u16;
+        ProgramCounter::Next
+    }
+
+    fn op_ld_digit(&self, x: u8) -> ProgramCounter {
+        self.i = (self.regs[x as usize] as u16) * 5;
+        ProgramCounter::Next
     }
 }
