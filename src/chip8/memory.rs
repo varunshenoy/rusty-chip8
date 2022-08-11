@@ -12,7 +12,7 @@ impl Memory {
             data: [0; MEM_SIZE],
         };
 
-        let number_sprites: [[u8; 5]; 16] = [
+        let digit_sprites: [[u8; 5]; 16] = [
             [0xF0, 0x90, 0x90, 0x90, 0xF0],
             [0x20, 0x60, 0x20, 0x20, 0x70],
             [0xF0, 0x10, 0xF0, 0x80, 0xF0],
@@ -32,7 +32,7 @@ impl Memory {
         ];
 
         let mut curr_idx = 0;
-        for num in number_sprites {
+        for num in digit_sprites {
             for byte in num {
                 memory.data[curr_idx] = byte;
                 curr_idx += 1;

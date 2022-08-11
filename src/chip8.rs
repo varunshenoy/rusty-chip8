@@ -28,6 +28,6 @@ impl Chip8 {
 
     pub fn execute_next_instruction(&mut self) {
         self.cpu
-            .execute_next_instruction(&self.memory, &self.display);
+            .execute_next_instruction(&self.memory, &mut self.display);
     }
 }
