@@ -45,7 +45,7 @@ impl Memory {
     }
 
     pub fn write_byte(&mut self, address: u16, value: u8) {
-        if address <= RESERVED {
+        if address < RESERVED {
             panic!(
                 "ERROR: Tried to write data in RESERVED region at address {}",
                 address

@@ -1,4 +1,5 @@
 mod cpu;
+mod display;
 mod memory;
 
 const PROGRAM_OFFSET: u16 = 0x200;
@@ -6,6 +7,7 @@ const PROGRAM_OFFSET: u16 = 0x200;
 pub struct Chip8 {
     memory: memory::Memory,
     cpu: cpu::Cpu,
+    display: display::Display,
 }
 
 impl Chip8 {
@@ -13,6 +15,7 @@ impl Chip8 {
         Chip8 {
             memory: memory::Memory::new(),
             cpu: cpu::Cpu::new(),
+            display: display::Display::new(),
         }
     }
 
@@ -23,7 +26,8 @@ impl Chip8 {
         }
     }
 
-    pub fn execute_next_instruction(&self) {
-        self.cpu.execute_next_instruction(&self.memory);
+    pub fn execute_next_instruction(&mut self) {
+        self.cpu
+            .execute_next_instruction(&self.memory, &self.display);
     }
 }
