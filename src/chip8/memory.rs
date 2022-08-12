@@ -1,8 +1,8 @@
 const MEM_SIZE: usize = 0xFFF;
 const RESERVED: u16 = 0x200;
 
-#[derive(Debug)]
 pub struct Memory {
+    // ram
     data: [u8; MEM_SIZE],
 }
 
@@ -38,8 +38,6 @@ impl Memory {
                 curr_idx += 1;
             }
         }
-
-        // println!("MEMORY: {:?}", memory.data);
 
         memory
     }

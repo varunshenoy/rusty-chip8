@@ -2,7 +2,9 @@ pub const HEIGHT: usize = 32;
 pub const WIDTH: usize = 64;
 
 pub struct Display {
+    // vram
     data: [[u8; WIDTH]; HEIGHT],
+    // indicate when to redraw
     needs_update: bool,
 }
 

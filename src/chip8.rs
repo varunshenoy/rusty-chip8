@@ -7,6 +7,8 @@ const PROGRAM_OFFSET: u16 = 0x200;
 pub struct Chip8 {
     memory: memory::Memory,
     cpu: cpu::Cpu,
+
+    // device periphery
     display: display::Display,
 }
 

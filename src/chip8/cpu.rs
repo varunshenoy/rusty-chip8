@@ -1,3 +1,5 @@
+use std::mem;
+
 use super::display::{Display, HEIGHT, WIDTH};
 use super::memory::Memory;
 
@@ -7,22 +9,36 @@ const OPCODE_SIZE: u16 = 2;
 const F: usize = 15;
 
 pub struct Cpu {
+    // 16 registers, often indexed as Vx
     regs: [u8; 16],
+    // index register
     i: u16,
+    // program counter
     pc: u16,
+    // stack pointer
     sp: u8,
+    // stack
     stack: [u16; 16],
+    // delay timer
     dt: u8,
+    // stack timer
     st: u8,
+    // keys
+    keys: [bool; 16],
+    // key flags
+    waiting_for_press: bool,
+    key_reg: u8,
 }
 
 enum ProgramCounter {
     Next,
     Skip,
-    Jump(u16),
+    JumpTo(u16),
 }
 
 struct Opcode {
+    // nibbles of opcode
+    // hi, x, y, n
     h: u8,
     x: u8,
     y: u8,
@@ -50,10 +66,13 @@ impl Cpu {
             stack: [0; 16],
             dt: 0,
             st: 0,
+            keys: [false; 16],
+            waiting_for_press: false,
+            key_reg: 0,
         }
     }
 
-    pub fn execute_next_instruction(&mut self, mem: &Memory, display: &mut Display) {
+    pub fn execute_next_instruction(&mut self, mem: &mut Memory, display: &mut Display) {
         // build up opcode primitives
         let hi = mem.read_byte(self.pc) as u16;
         let lo = mem.read_byte(self.pc + 1) as u16;
@@ -258,19 +277,19 @@ impl Cpu {
                 x: _,
                 y: 3,
                 n: 3,
-            } => self.op_ld_bcd(opcode.x),
+            } => self.op_ld_bcd(opcode.x, mem),
             Opcode {
                 h: 0xF,
                 x: _,
                 y: 5,
                 n: 5,
-            } => self.op_str_regs(opcode.x),
+            } => self.op_str_regs(opcode.x, mem),
             Opcode {
                 h: 0xF,
                 x: _,
                 y: 6,
                 n: 5,
-            } => self.op_ld_all_regs(opcode.x),
+            } => self.op_ld_all_regs(opcode.x, mem),
             _ => ProgramCounter::Next,
         };
 
@@ -278,7 +297,7 @@ impl Cpu {
         match update {
             ProgramCounter::Next => self.pc += OPCODE_SIZE,
             ProgramCounter::Skip => self.pc += OPCODE_SIZE + OPCODE_SIZE,
-            ProgramCounter::Jump(addr) => self.pc = addr,
+            ProgramCounter::JumpTo(addr) => self.pc = addr,
         }
     }
 
@@ -303,7 +322,7 @@ impl Cpu {
     // stack, then subtracts 1 from the stack pointer.
     fn op_ret(&mut self) -> ProgramCounter {
         self.sp -= 1;
-        ProgramCounter::Jump(self.stack[self.sp as usize])
+        ProgramCounter::JumpTo(self.stack[self.sp as usize])
     }
 
     // 1nnn - JP addr
@@ -311,7 +330,7 @@ impl Cpu {
 
     // The interpreter sets the program counter to nnn.
     fn op_jp_addr(&self, nnn: u16) -> ProgramCounter {
-        ProgramCounter::Jump(nnn)
+        ProgramCounter::JumpTo(nnn)
     }
 
     // 2nnn - CALL addr
@@ -322,7 +341,7 @@ impl Cpu {
     fn op_call(&mut self, nnn: u16) -> ProgramCounter {
         self.stack[self.sp as usize] = self.pc;
         self.sp += 1;
-        ProgramCounter::Jump(nnn)
+        ProgramCounter::JumpTo(nnn)
     }
 
     // 3xkk - SE Vx, byte
@@ -547,26 +566,42 @@ impl Cpu {
     // display, it wraps around to the opposite side of the screen. See
     // instruction 8xy3 for more information on XOR, and section 2.4, Display,
     // for more information on the Chip-8 screen and sprites.
-    fn op_display_sprite(&self, x: u8, y: u8, display: &mut Display) -> ProgramCounter {
+    fn op_display_sprite(&self, x: u8, y: u8, n: u8, display: &mut Display) -> ProgramCounter {
+        self.regs[F] = 0;
+        let vx = self.regs[x as usize];
+        let vy = self.regs[y as usize];
+        for byte in 0..n {
+            // TODO
+        }
         ProgramCounter::Next
     }
 
-    // TODO: Ex9E - SKP Vx
+    // Ex9E - SKP Vx
     // Skip next instruction if key with the value of Vx is pressed.
 
     // Checks the keyboard, and if the key corresponding to the value of Vx is
     // currently in the down position, PC is increased by 2.
     fn op_skp(&self, x: u8) -> ProgramCounter {
-        ProgramCounter::Next
+        let vx = self.regs[x as usize];
+        if self.keys[vx as usize] {
+            ProgramCounter::Skip
+        } else {
+            ProgramCounter::Next
+        }
     }
 
-    // TODO: ExA1 - SKNP Vx
+    // ExA1 - SKNP Vx
     // Skip next instruction if key with the value of Vx is not pressed.
 
     // Checks the keyboard, and if the key corresponding to the value of Vx is
     // currently in the up position, PC is increased by 2.
     fn op_sknp(&self, x: u8) -> ProgramCounter {
-        ProgramCounter::Next
+        let vx = self.regs[x as usize];
+        if !self.keys[vx as usize] {
+            ProgramCounter::Skip
+        } else {
+            ProgramCounter::Next
+        }
     }
 
     // Fx07 - LD Vx, DT
@@ -578,12 +613,14 @@ impl Cpu {
         ProgramCounter::Next
     }
 
-    // TODO: Fx0A - LD Vx, K
+    // Fx0A - LD Vx, K
     // Wait for a key press, store the value of the key in Vx.
 
     // All execution stops until a key is pressed, then the value of that key is
     // stored in Vx.
-    fn op_ld_store_key(&self, x: u8) -> ProgramCounter {
+    fn op_ld_store_key(&mut self, x: u8) -> ProgramCounter {
+        self.waiting_for_press = true;
+        self.key_reg = x;
         ProgramCounter::Next
     }
 
@@ -625,31 +662,41 @@ impl Cpu {
         ProgramCounter::Next
     }
 
-    // TODO: Fx33 - LD B, Vx
+    // Fx33 - LD B, Vx
     // Store BCD representation of Vx in memory locations I, I+1, and I+2.
 
     // The interpreter takes the decimal value of Vx, and places the hundreds
     // digit in memory at location in I, the tens digit at location I+1, and the
     // ones digit at location I+2.
-    fn op_ld_bcd(&self, x: u8) -> ProgramCounter {
+    fn op_ld_bcd(&self, x: u8, mem: &Memory) -> ProgramCounter {
+        let vx = self.regs[x as usize];
+        mem.write_byte(self.i, vx / 100);
+        mem.write_byte(self.i + 1, (vx % 100) / 10);
+        mem.write_byte(self.i + 2, vx % 10);
         ProgramCounter::Next
     }
 
-    // TODO: Fx55 - LD [I], Vx
+    // Fx55 - LD [I], Vx
     // Store registers V0 through Vx in memory starting at location I.
 
     // The interpreter copies the values of registers V0 through Vx into memory,
     // starting at the address in I.
-    fn op_str_regs(&self, x: u8) -> ProgramCounter {
+    fn op_str_regs(&mut self, x: u8, mem: &mut Memory) -> ProgramCounter {
+        for j in 0..(x as usize) {
+            mem.write_byte(self.i + (j as u16), self.regs[j]);
+        }
         ProgramCounter::Next
     }
 
-    // TODO: Fx65 - LD Vx, [I]
+    // Fx65 - LD Vx, [I]
     // Read registers V0 through Vx from memory starting at location I.
 
     // The interpreter reads values from memory starting at location I into
     // registers V0 through Vx.
-    fn op_ld_all_regs(&self, x: u8) -> ProgramCounter {
+    fn op_ld_all_regs(&mut self, x: u8, mem: &Memory) -> ProgramCounter {
+        for j in 0..(x as usize) {
+            self.regs[j] = mem.read_byte(self.i + (j as u16));
+        }
         ProgramCounter::Next
     }
 }
