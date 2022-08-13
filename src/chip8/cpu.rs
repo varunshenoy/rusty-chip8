@@ -1,5 +1,3 @@
-use std::mem;
-
 use super::display::{Display, HEIGHT, WIDTH};
 use super::memory::Memory;
 
@@ -73,6 +71,13 @@ impl Cpu {
     }
 
     pub fn execute_next_instruction(&mut self, mem: &mut Memory, display: &mut Display) {
+        if self.dt > 0 {
+            self.dt -= 1
+        }
+        if self.st > 0 {
+            self.st -= 1
+        }
+
         // build up opcode primitives
         let hi = mem.read_byte(self.pc) as u16;
         let lo = mem.read_byte(self.pc + 1) as u16;
@@ -83,6 +88,19 @@ impl Cpu {
 
         let nnn = (instr & 0x0FFF) as u16;
         let kk = (instr & 0x00FF) as u8;
+
+        // print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+        // println!("Executing: {:#X}", instr);
+        // println!("PC: {}", self.pc);
+        // println!("I: {}\n", self.i);
+
+        // for (idx, reg) in self.regs.iter().enumerate() {
+        //     print!("V: {}\n", self.i);
+        // }
+
+        // if instr == 0xF607 {
+        //     panic!("AHHH!");
+        // }
 
         // process opcode
         let update = match opcode {
@@ -223,12 +241,12 @@ impl Cpu {
                 x: _,
                 y: _,
                 n: _,
-            } => self.op_display_sprite(opcode.x, opcode.y, display),
+            } => self.op_display_sprite(opcode.x, opcode.y, opcode.n, mem, display),
             Opcode {
                 h: 0xE,
                 x: _,
                 y: 9,
-                n: E,
+                n: 0xE,
             } => self.op_skp(opcode.x),
             Opcode {
                 h: 0xE,
@@ -293,7 +311,6 @@ impl Cpu {
             _ => ProgramCounter::Next,
         };
 
-        println!("executing {:#X}", instr);
         match update {
             ProgramCounter::Next => self.pc += OPCODE_SIZE,
             ProgramCounter::Skip => self.pc += OPCODE_SIZE + OPCODE_SIZE,
@@ -309,7 +326,6 @@ impl Cpu {
                 display.write(x, y, 0);
             }
         }
-        display.will_need_update();
         ProgramCounter::Next
     }
 
@@ -339,7 +355,7 @@ impl Cpu {
     // The interpreter increments the stack pointer, then puts the current PC on
     // the top of the stack. The PC is then set to nnn.
     fn op_call(&mut self, nnn: u16) -> ProgramCounter {
-        self.stack[self.sp as usize] = self.pc;
+        self.stack[self.sp as usize] = self.pc + OPCODE_SIZE;
         self.sp += 1;
         ProgramCounter::JumpTo(nnn)
     }
@@ -402,7 +418,8 @@ impl Cpu {
     // Adds the value kk to the value of register Vx, then stores the result in
     // Vx.
     fn op_add_byte(&mut self, x: u8, kk: u8) -> ProgramCounter {
-        self.regs[x as usize] += kk;
+        let result = (self.regs[x as usize] as u16) + (kk as u16);
+        self.regs[x as usize] = result as u8;
         ProgramCounter::Next
     }
 
@@ -566,12 +583,25 @@ impl Cpu {
     // display, it wraps around to the opposite side of the screen. See
     // instruction 8xy3 for more information on XOR, and section 2.4, Display,
     // for more information on the Chip-8 screen and sprites.
-    fn op_display_sprite(&self, x: u8, y: u8, n: u8, display: &mut Display) -> ProgramCounter {
+    fn op_display_sprite(
+        &mut self,
+        x: u8,
+        y: u8,
+        n: u8,
+        mem: &Memory,
+        display: &mut Display,
+    ) -> ProgramCounter {
         self.regs[F] = 0;
-        let vx = self.regs[x as usize];
-        let vy = self.regs[y as usize];
         for byte in 0..n {
-            // TODO
+            let y = (self.regs[y as usize] as usize + byte as usize) % HEIGHT;
+            for bit in 0..8 {
+                let x = (self.regs[x as usize] as usize + bit) % WIDTH;
+                let color = (mem.read_byte(self.i + byte as u16) >> (7 - bit)) & 1;
+
+                let curr = display.read_pixel(x, y);
+                self.regs[F] |= color & curr;
+                display.write(x, y, curr ^ color);
+            }
         }
         ProgramCounter::Next
     }
@@ -668,7 +698,7 @@ impl Cpu {
     // The interpreter takes the decimal value of Vx, and places the hundreds
     // digit in memory at location in I, the tens digit at location I+1, and the
     // ones digit at location I+2.
-    fn op_ld_bcd(&self, x: u8, mem: &Memory) -> ProgramCounter {
+    fn op_ld_bcd(&self, x: u8, mem: &mut Memory) -> ProgramCounter {
         let vx = self.regs[x as usize];
         mem.write_byte(self.i, vx / 100);
         mem.write_byte(self.i + 1, (vx % 100) / 10);

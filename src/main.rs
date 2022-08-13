@@ -1,5 +1,5 @@
 use chip8::Chip8;
-use std::{env, fs::File, io::Read};
+use std::{env, fs::File, io::Read, thread, time::Duration};
 
 mod chip8;
 
@@ -13,10 +13,8 @@ fn main() {
     // 2. Setup Chip8
     let mut chip8: Chip8 = Chip8::new();
     chip8.load_rom(&data);
-    chip8.execute_next_instruction();
-    chip8.execute_next_instruction();
-    chip8.execute_next_instruction();
-    chip8.execute_next_instruction();
-
-    println!("Hello, world!");
+    loop {
+        chip8.execute_next_instruction();
+        thread::sleep(Duration::from_millis(2));
+    }
 }

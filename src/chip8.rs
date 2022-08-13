@@ -25,12 +25,12 @@ impl Chip8 {
         for idx in 0..rom.len() {
             self.memory
                 .write_byte(PROGRAM_OFFSET + (idx as u16), rom[idx]);
-            println!("{:#X}", rom[idx])
         }
     }
 
     pub fn execute_next_instruction(&mut self) {
         self.cpu
-            .execute_next_instruction(&self.memory, &mut self.display);
+            .execute_next_instruction(&mut self.memory, &mut self.display);
+        self.display.update();
     }
 }
