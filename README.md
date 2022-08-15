@@ -12,7 +12,7 @@ I primarily tested this emulator on `TETRIS` and `PONG`. Note that it seems like
 Some interesting extensions would be to build an interactive debugger (which would involve the user being able to step through opcode instructions and visually look under the hood to examine registers and the stack) and replacing `minifb` with `sdl2` for better abstractions and proper device periphery separation.
 
 ### Advice for Building a Emulator
-Instead of writing the emulator and testing it afterwards (as I did in this project), it is best to initially write a minimal amount of code. Load a ROM and get it to crash/panic when it encounters an unimplemented opcode. At that point, write the code to parse the opcode and make sure it gets appropriately handled. This build-test loop chunks this larger project into much smaller pieces and makes sure every opcode gets the attention it needs.
+Instead of writing the emulator and testing it afterwards (as I did in this project), it is best to initially write a minimal amount of code. First, load a ROM. When the interpreter gets to an unimplemented opcode, crash/panic and print the opcode. At that point, write the code to parse the opcode and make sure it gets appropriately handled. This build-test loop chunks this larger project into much smaller pieces and makes sure every opcode gets the attention it needs.
 
 ### Resources Used:
 - [The Rust Programming Language](https://doc.rust-lang.org/book/)
