@@ -1,6 +1,7 @@
 use super::display::{Display, HEIGHT, WIDTH};
 use super::keyboard::Keyboard;
 use super::memory::Memory;
+use super::PROGRAM_OFFSET;
 
 use rand::Rng;
 
@@ -58,7 +59,7 @@ impl Cpu {
         Cpu {
             regs: [0; 16],
             i: 0,
-            pc: 0x200,
+            pc: PROGRAM_OFFSET,
             sp: 0,
             stack: [0; 16],
             dt: 0,
