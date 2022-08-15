@@ -317,6 +317,9 @@ impl Cpu {
             ProgramCounter::JumpTo(addr) => self.pc = addr,
             ProgramCounter::Wait => (),
         }
+
+        println!("{:#X}", instr);
+        println!("{:?}", self.regs);
     }
 
     // 00E0 - CLS
@@ -701,9 +704,10 @@ impl Cpu {
     // ones digit at location I+2.
     fn op_ld_bcd(&self, x: u8, mem: &mut Memory) -> ProgramCounter {
         let vx = self.regs[x as usize];
-        mem.write_byte(self.i, vx / 100);
-        mem.write_byte(self.i + 1, (vx % 100) / 10);
-        mem.write_byte(self.i + 2, vx % 10);
+        mem.write_byte(self.i, (vx / 100) as u8);
+        mem.write_byte(self.i + 1, ((vx % 100) / 10) as u8);
+        mem.write_byte(self.i + 2, (vx % 10) as u8);
+
         ProgramCounter::Next
     }
 
@@ -713,7 +717,7 @@ impl Cpu {
     // The interpreter copies the values of registers V0 through Vx into memory,
     // starting at the address in I.
     fn op_str_regs(&mut self, x: u8, mem: &mut Memory) -> ProgramCounter {
-        for j in 0..(x as usize) {
+        for j in 0..((x as usize) + 1) {
             mem.write_byte(self.i + (j as u16), self.regs[j]);
         }
         ProgramCounter::Next
@@ -725,7 +729,7 @@ impl Cpu {
     // The interpreter reads values from memory starting at location I into
     // registers V0 through Vx.
     fn op_ld_all_regs(&mut self, x: u8, mem: &Memory) -> ProgramCounter {
-        for j in 0..(x as usize) {
+        for j in 0..((x as usize) + 1) {
             self.regs[j] = mem.read_byte(self.i + (j as u16));
         }
         ProgramCounter::Next
