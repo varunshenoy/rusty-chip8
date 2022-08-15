@@ -15,6 +15,6 @@ fn main() {
     chip8.load_rom(&data);
     loop {
         chip8.execute_next_instruction();
-        thread::sleep(Duration::from_millis(2));
+        thread::sleep(Duration::from_millis(5));
     }
 }

@@ -1,4 +1,5 @@
 use super::display::{Display, HEIGHT, WIDTH};
+use super::keyboard::Keyboard;
 use super::memory::Memory;
 
 use rand::Rng;
@@ -21,10 +22,7 @@ pub struct Cpu {
     dt: u8,
     // stack timer
     st: u8,
-    // keys
-    keys: [bool; 16],
-    // key flags
-    waiting_for_press: bool,
+    // key register
     key_reg: u8,
 }
 
@@ -32,6 +30,7 @@ enum ProgramCounter {
     Next,
     Skip,
     JumpTo(u16),
+    Wait,
 }
 
 struct Opcode {
@@ -64,18 +63,31 @@ impl Cpu {
             stack: [0; 16],
             dt: 0,
             st: 0,
-            keys: [false; 16],
-            waiting_for_press: false,
             key_reg: 0,
         }
     }
 
-    pub fn execute_next_instruction(&mut self, mem: &mut Memory, display: &mut Display) {
-        if self.dt > 0 {
-            self.dt -= 1
+    pub fn execute_next_instruction(
+        &mut self,
+        mem: &mut Memory,
+        display: &mut Display,
+        keyboard: &mut Keyboard,
+    ) {
+        let found_press = keyboard.poll(display.get_keys());
+        if keyboard.is_waiting_for_press() && found_press == 0xFF {
+            return;
+        } else if keyboard.is_waiting_for_press() && found_press != 0xFF {
+            self.regs[self.key_reg as usize] = found_press as u8;
+            keyboard.stop_waiting_for_press();
         }
+
+        if self.dt > 0 {
+            self.dt -= 1;
+        }
+
         if self.st > 0 {
-            self.st -= 1
+            self.st -= 1;
+        } else {
         }
 
         // build up opcode primitives
@@ -88,19 +100,6 @@ impl Cpu {
 
         let nnn = (instr & 0x0FFF) as u16;
         let kk = (instr & 0x00FF) as u8;
-
-        // print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
-        // println!("Executing: {:#X}", instr);
-        // println!("PC: {}", self.pc);
-        // println!("I: {}\n", self.i);
-
-        // for (idx, reg) in self.regs.iter().enumerate() {
-        //     print!("V: {}\n", self.i);
-        // }
-
-        // if instr == 0xF607 {
-        //     panic!("AHHH!");
-        // }
 
         // process opcode
         let update = match opcode {
@@ -247,13 +246,13 @@ impl Cpu {
                 x: _,
                 y: 9,
                 n: 0xE,
-            } => self.op_skp(opcode.x),
+            } => self.op_skp(opcode.x, keyboard),
             Opcode {
                 h: 0xE,
                 x: _,
                 y: 0xA,
                 n: 1,
-            } => self.op_sknp(opcode.x),
+            } => self.op_sknp(opcode.x, keyboard),
             Opcode {
                 h: 0xF,
                 x: _,
@@ -265,7 +264,7 @@ impl Cpu {
                 x: _,
                 y: 0,
                 n: 0xA,
-            } => self.op_ld_store_key(opcode.x),
+            } => self.op_ld_store_key(opcode.x, keyboard),
             Opcode {
                 h: 0xF,
                 x: _,
@@ -315,6 +314,7 @@ impl Cpu {
             ProgramCounter::Next => self.pc += OPCODE_SIZE,
             ProgramCounter::Skip => self.pc += OPCODE_SIZE + OPCODE_SIZE,
             ProgramCounter::JumpTo(addr) => self.pc = addr,
+            ProgramCounter::Wait => (),
         }
     }
 
@@ -596,11 +596,11 @@ impl Cpu {
             let y = (self.regs[y as usize] as usize + byte as usize) % HEIGHT;
             for bit in 0..8 {
                 let x = (self.regs[x as usize] as usize + bit) % WIDTH;
-                let color = (mem.read_byte(self.i + byte as u16) >> (7 - bit)) & 1;
+                let new_pixel = (mem.read_byte(self.i + byte as u16) >> (7 - bit)) & 1;
 
                 let curr = display.read_pixel(x, y);
-                self.regs[F] |= color & curr;
-                display.write(x, y, curr ^ color);
+                self.regs[F] |= new_pixel & curr;
+                display.write(x, y, curr ^ new_pixel);
             }
         }
         ProgramCounter::Next
@@ -611,9 +611,9 @@ impl Cpu {
 
     // Checks the keyboard, and if the key corresponding to the value of Vx is
     // currently in the down position, PC is increased by 2.
-    fn op_skp(&self, x: u8) -> ProgramCounter {
+    fn op_skp(&self, x: u8, keyboard: &Keyboard) -> ProgramCounter {
         let vx = self.regs[x as usize];
-        if self.keys[vx as usize] {
+        if keyboard.query_key(vx as usize) {
             ProgramCounter::Skip
         } else {
             ProgramCounter::Next
@@ -625,9 +625,9 @@ impl Cpu {
 
     // Checks the keyboard, and if the key corresponding to the value of Vx is
     // currently in the up position, PC is increased by 2.
-    fn op_sknp(&self, x: u8) -> ProgramCounter {
+    fn op_sknp(&self, x: u8, keyboard: &Keyboard) -> ProgramCounter {
         let vx = self.regs[x as usize];
-        if !self.keys[vx as usize] {
+        if !keyboard.query_key(vx as usize) {
             ProgramCounter::Skip
         } else {
             ProgramCounter::Next
@@ -648,10 +648,10 @@ impl Cpu {
 
     // All execution stops until a key is pressed, then the value of that key is
     // stored in Vx.
-    fn op_ld_store_key(&mut self, x: u8) -> ProgramCounter {
-        self.waiting_for_press = true;
+    fn op_ld_store_key(&mut self, x: u8, keyboard: &mut Keyboard) -> ProgramCounter {
+        keyboard.start_waiting_for_press();
         self.key_reg = x;
-        ProgramCounter::Next
+        ProgramCounter::Wait
     }
 
     // Fx15 - LD DT, Vx

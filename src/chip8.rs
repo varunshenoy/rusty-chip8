@@ -1,5 +1,6 @@
 mod cpu;
 mod display;
+mod keyboard;
 mod memory;
 
 const PROGRAM_OFFSET: u16 = 0x200;
@@ -10,6 +11,7 @@ pub struct Chip8 {
 
     // device periphery
     display: display::Display,
+    keyboard: keyboard::Keyboard,
 }
 
 impl Chip8 {
@@ -18,6 +20,7 @@ impl Chip8 {
             memory: memory::Memory::new(),
             cpu: cpu::Cpu::new(),
             display: display::Display::new(),
+            keyboard: keyboard::Keyboard::new(),
         }
     }
 
@@ -30,7 +33,7 @@ impl Chip8 {
 
     pub fn execute_next_instruction(&mut self) {
         self.cpu
-            .execute_next_instruction(&mut self.memory, &mut self.display);
+            .execute_next_instruction(&mut self.memory, &mut self.display, &mut self.keyboard);
         self.display.update();
     }
 }

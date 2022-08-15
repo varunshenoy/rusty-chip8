@@ -1,12 +1,15 @@
 extern crate minifb;
 
-use minifb::{Key, Window, WindowOptions};
+use minifb::{Key, KeyRepeat, Window, WindowOptions};
 
 pub const HEIGHT: usize = 32;
 pub const WIDTH: usize = 64;
 
 pub const SCALED_HEIGHT: usize = 320;
 pub const SCALED_WIDTH: usize = 640;
+
+pub const BG_COLOR: u32 = 0;
+pub const FG_COLOR: u32 = 0x004cd137;
 
 pub struct Display {
     // vram
@@ -50,15 +53,22 @@ impl Display {
         let mut idx = 0;
         for i in 0..HEIGHT {
             for j in 0..WIDTH {
-                self.buffer[idx] = if self.data[i][j] == 0 { 0 } else { 0x00FFFFFF };
+                self.buffer[idx] = if self.data[i][j] == 0 {
+                    BG_COLOR
+                } else {
+                    FG_COLOR
+                };
                 idx += 1;
             }
         }
     }
 
+    pub fn get_keys(&self) -> Vec<Key> {
+        self.window.get_keys_pressed(KeyRepeat::Yes)
+    }
+
     pub fn update(&mut self) {
         if !self.window.is_open() {
-            println!("Exiting game!");
             std::process::exit(1);
         }
         if self.needs_update {
