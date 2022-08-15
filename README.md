@@ -6,7 +6,7 @@
 
 > — [Wikipedia on CHIP-8](https://en.wikipedia.org/wiki/CHIP-8)
 
-I first wanted to build a GBA emulator, since I've grown up on those, but it seems like a lot for a first-time emulator (and honestly, implementing [every single instruction](https://meganesulli.com/generate-gb-opcodes/) would take forever). I'm also completely new to Rust, so building a CHIP-8 emulator seems like a good place to start. Overall, this is a fantastic systems project to learn a new language (and have something to show at the end of it all).
+I first wanted to build a GBA emulator, since I've grown up on those ([Pokemon ROM hacks](https://tvtropes.org/pmwiki/pmwiki.php/VideoGame/PokemonSweetVersion#:~:text=Pok%C3%A9mon%20Sweet%20Version%20is%20a,Pok%C3%A9mon%20Sweet%202th%2C%20available%20here%20.) made up my childhood), but it seemed like a lot for a first time emulator. Honestly, implementing [every single instruction](https://meganesulli.com/generate-gb-opcodes/) would have taken forever. I'm also new to Rust, so building a CHIP-8 emulator is a good place to start. Overall, this is a fantastic systems project to learn a new language and have something to show at the end of it all.
 
 I primarily tested this emulator on `TETRIS` and `PONG`. Note that it seems like the key debouncer within `minifb` is not the best, so sometimes keys may not be received properly. This is a first time Rust and "building an emulator" project I've done, so expect some quirks. The `TEST` ROM (listed below) was also used in debugging the emulator. 
 
