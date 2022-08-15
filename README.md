@@ -11,7 +11,7 @@ I first wanted to build a GBA emulator, since I've grown up on those, but it see
 
 I primarily tested this emulator on TETRIS and PONG, so try those for the best experience.
 
-Note that it seems like the key debouncer within `minifb` is not the best, so sometimes keys may not be received properly. This is a first time Rust and building an emulator project I've done, so expect some quirks.
+Note that it seems like the key debouncer within `minifb` is not the best, so sometimes keys may not be received properly. This is a first time Rust and "building an emulator" project I've done, so expect some quirks.
 
 ### Resources Used:
 - [The Rust Programming Language](https://doc.rust-lang.org/book/)
