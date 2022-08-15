@@ -12,10 +12,10 @@ I primarily tested this emulator on `TETRIS` and `PONG`. Note that it seems like
 
 Some interesting extensions would be to build an interactive debugger (which would involve the user being able to step through opcode instructions and visually look under the hood to examine registers and the stack) and replacing `minifb` with `sdl2` for better abstractions and proper device periphery separation.
 
-### Advice for Building a Emulator
+### 🎮 Advice for Building a Emulator
 Instead of writing the emulator and testing it afterwards (as I did in this project), it is best to initially write a minimal amount of code. First, load a ROM. When the interpreter gets to an unimplemented opcode, crash/panic and print the opcode. At that point, write the code to parse the opcode and make sure it gets appropriately handled. This build-test loop chunks this larger project into much smaller pieces and makes sure every opcode gets the attention it needs.
 
-### Resources Used:
+### 🕹 Resources Used:
 - [The Rust Programming Language](https://doc.rust-lang.org/book/)
 - [Cowgod's Chip-8 Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM#1.0)
 - [Colin Eberhardt's WASM Rust Chip-8 Output](https://colineberhardt.github.io/wasm-rust-chip8/web/) 
